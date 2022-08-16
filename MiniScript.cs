@@ -1,15 +1,16 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 public class MiniScript
 {
-    public delegate void Command(Value[] parameters, Runtime runtime);
+    public delegate void Command(Parameters parameters, Runtime runtime);
 
     protected class Instruction
     {
         public Command command;
-        public Value[] parameters;
+        public Parameters parameters;
 
         public void Execute(Runtime runtime)
         {
@@ -17,22 +18,69 @@ public class MiniScript
             {
                 command(parameters, runtime);
             }
-            else if (parameters.Length == 2)
+            else
             {
-                Variable variable = parameters[0].GetVariable(null);
-
-                if (variable != null)
+                if (parameters.IsValid(new uint[] {128, 0}))
                 {
-                    Value value = runtime.GetVariableValue(variable);
-                    value.SetAs(parameters[1].type, parameters[1].value);
+                    parameters.Get(0).GetVariableValue(runtime).Assign(runtime, parameters.Get(1));
                 }
             }
         }
 
-        public Instruction(Command command, Value[] parameters)
+        public Instruction(Command command, Parameters parameters)
         {
             this.command = command;
             this.parameters = parameters;
+        }
+    }
+
+    public class Parameters
+    {
+        private Value[] values;
+
+        public int Length
+        {
+            get { return values.Length; }
+            private set { }
+        }
+
+        public Value Get(int index)
+        {
+            return values[index];
+        }
+
+        public Value Get(int index, Value defaultValue = null)
+        {
+            if (index > 0 && index < values.Length)
+                return values[index];
+            else
+                return defaultValue;
+        }
+
+        public bool IsValid(uint[] expectedParameters, int offset = 0)
+        {
+            if (expectedParameters.Length + offset > values.Length)
+            {
+                return false;
+            }
+            else
+            {
+                for (int i = 0; i < expectedParameters.Length; i++)
+                {
+                    uint expectedValueTypes = expectedParameters[i];
+
+                    if (expectedValueTypes != 0 && (((uint)values[i + offset].type & expectedValueTypes) == 0))
+                        return false;
+                }
+
+                return true;
+            }
+
+        }
+
+        public Parameters(Value[] values)
+        {
+            this.values = values;
         }
     }
 
@@ -181,15 +229,15 @@ public class MiniScript
     {
         public enum VALUE_TYPE
         {
-            NULL,
-            BOOL,
-            INT,
-            FLOAT,
-            STRING,
-            STRING_TEMPLATE,
-            OBJECT,
-            VARIABLE,
-            LABEL
+            NULL = 1,
+            BOOL = 2,
+            INT = 4,
+            FLOAT = 8,
+            STRING = 16,
+            STRING_TEMPLATE = 32,
+            OBJECT = 64,
+            VARIABLE = 128,
+            LABEL = 256
         }
 
         public VALUE_TYPE type { get; private set; }
@@ -215,7 +263,6 @@ public class MiniScript
                 value = newValue;
             }
         }
-
 
         public void Set(int newValue)
         {
@@ -280,7 +327,6 @@ public class MiniScript
             }
         }
         
-
         public void SetAs(VALUE_TYPE type, object newValue)
         {
             if (variable)
@@ -290,7 +336,99 @@ public class MiniScript
             }
         }
 
-        public bool GetBool(Runtime runtime)
+        public void Assign(Runtime runtime, Value value)
+        {
+            if(value.type == VALUE_TYPE.STRING_TEMPLATE)
+            {
+                StringTemplate stringTemplate = value.GetStringTemplate();
+                this.type = VALUE_TYPE.STRING;
+                this.value = stringTemplate.GetString(runtime);
+            }
+            else if (value.type == VALUE_TYPE.VARIABLE)
+            {
+                Value variableValue = runtime.GetVariableValue(value.GetVariable());
+                Assign(runtime, variableValue);
+            }
+            else
+            {
+                this.value = value.value;
+                this.type = value.type;
+            }
+        }
+
+        public static bool IsEqual(Value a, Value b, Runtime runtime)
+        {
+            if (a.type == VALUE_TYPE.NULL && b.type == VALUE_TYPE.NULL)
+            {
+                return true;
+            }
+            else if (a.type == VALUE_TYPE.BOOL && b.type == VALUE_TYPE.BOOL)
+            {
+                return (bool)a.value == (bool)b.value;
+            }
+            else if ((a.type == VALUE_TYPE.INT || a.type == VALUE_TYPE.FLOAT) && (b.type == VALUE_TYPE.INT || b.type == VALUE_TYPE.FLOAT))
+            {
+                return a.TryGetFloat(runtime) == b.TryGetFloat(runtime);
+            }
+            else if ((a.type == VALUE_TYPE.STRING || a.type == VALUE_TYPE.STRING_TEMPLATE) && (b.type == VALUE_TYPE.STRING || b.type == VALUE_TYPE.STRING_TEMPLATE))
+            {
+                string str_a = a.type == VALUE_TYPE.STRING ? (string)a.value : a.GetStringTemplate().GetString(runtime);
+                string str_b = b.type == VALUE_TYPE.STRING ? (string)b.value : b.GetStringTemplate().GetString(runtime);
+
+                return str_a == str_b;
+            }
+            else
+            {
+                return a.value == b.value;
+            }
+        }
+
+        public bool GetBool()
+        {
+            return (bool)value;
+        }
+
+        public int GetInt()
+        {
+            return (int)value;
+        }
+
+        public float GetFloat()
+        {
+            return (float)value;
+        }
+
+        public string GetString()
+        {
+            return (string)value;
+        }
+
+        public StringTemplate GetStringTemplate()
+        {
+            return (StringTemplate)value;
+        }
+
+        public object GetObject()
+        {
+            return value;
+        }
+
+        public Variable GetVariable()
+        {
+            return (Variable)value;
+        }
+
+        public Label GetLabel(Label defaultValue = null)
+        {
+            return (Label)value;
+        }
+
+        public Value GetVariableValue(Runtime runtime)
+        {
+            return runtime.GetVariableValue((Variable)value);
+        }
+
+        public bool TryGetBool(Runtime runtime, bool defaultValue = false)
         {
             if (type == VALUE_TYPE.NULL)
                 return false;
@@ -301,20 +439,23 @@ public class MiniScript
             else if (type == VALUE_TYPE.INT)
                 return (int)value != 0;
 
-            else if (type == VALUE_TYPE.FLOAT )
+            else if (type == VALUE_TYPE.FLOAT)
                 return (float)value != 0f;
 
             else if (type == VALUE_TYPE.STRING)
                 return (string)value != "";
 
-            else if (type == VALUE_TYPE.STRING_TEMPLATE )
+            else if (type == VALUE_TYPE.STRING_TEMPLATE)
                 return ((StringTemplate)value).GetString(runtime) != "";
 
+            else if (type == VALUE_TYPE.VARIABLE)
+                return runtime.GetVariableValue((Variable)value).TryGetBool(runtime, defaultValue);
+
             else
-                return value != null;
+                return defaultValue;
         }
 
-        public int GetInt(int defaultValue = 0)
+        public int TryGetInt(Runtime runtime, int defaultValue = 0)
         {
             if (type == VALUE_TYPE.INT)
                 return (int)value;
@@ -322,11 +463,21 @@ public class MiniScript
             else if (type == VALUE_TYPE.FLOAT)
                 return (int)((float)value);
 
+            else if (type == VALUE_TYPE.STRING)
+            {
+                if (int.TryParse((string)value, out int result))
+                    return result;
+                else
+                    return defaultValue;
+
+            } else if (type == VALUE_TYPE.VARIABLE)
+                return runtime.GetVariableValue((Variable)value).TryGetInt(runtime, defaultValue);
+
             else
                 return defaultValue;
         }
 
-        public float GetFloat(float defaultValue = 0f)
+        public float TryGetFloat(Runtime runtime, float defaultValue = 0f)
         {
             if (type == VALUE_TYPE.FLOAT)
                 return (float)value;
@@ -334,11 +485,22 @@ public class MiniScript
             else if (type == VALUE_TYPE.INT)
                 return (int)value;
 
+            else if (type == VALUE_TYPE.STRING)
+            {
+                if (float.TryParse((string)value, out float result))
+                    return result;
+                else
+                    return defaultValue;
+
+            }
+            else if (type == VALUE_TYPE.VARIABLE)
+                return runtime.GetVariableValue((Variable)value).TryGetFloat(runtime, defaultValue);
+
             else
                 return defaultValue;
         }
 
-        public string GetString(string defaultValue = "")
+        public string TryGetString(Runtime runtime, string defaultValue = "")
         {
             if (type == VALUE_TYPE.STRING)
                 return (string)value;
@@ -352,27 +514,41 @@ public class MiniScript
             else if (type == VALUE_TYPE.FLOAT)
                 return ((float)value).ToString();
 
+            else if (type == VALUE_TYPE.STRING_TEMPLATE)
+                return ((StringTemplate)value).GetString(runtime);
+
+            else if (type == VALUE_TYPE.VARIABLE)
+                return runtime.GetVariableValue((Variable)value).TryGetString(runtime, defaultValue);
+
             else
                 return defaultValue;
         }
 
-        public StringTemplate GetStringTemplate(StringTemplate defaultValue = null)
+        public StringTemplate TryGetStringTemplate(Runtime runtime, StringTemplate defaultValue = null)
         {
             if (type == VALUE_TYPE.STRING_TEMPLATE)
                 return (StringTemplate)value;
+
+            else if (type == VALUE_TYPE.VARIABLE)
+                return runtime.GetVariableValue((Variable)value).TryGetStringTemplate(runtime, defaultValue);
+
             else
                 return defaultValue;
         }
 
-        public object GetObject(object defaultValue = null)
+        public object TryGetObject(Runtime runtime, object defaultValue = null)
         {
             if (type == VALUE_TYPE.OBJECT)
                 return value;
+
+            else if (type == VALUE_TYPE.VARIABLE)
+                return runtime.GetVariableValue((Variable)value).TryGetObject(runtime, defaultValue);
+
             else
                 return defaultValue;
         }
 
-        public Variable GetVariable(Variable defaultValue = null)
+        public Variable TryGetVariable(Variable defaultValue = null)
         {
             if (type == VALUE_TYPE.VARIABLE)
                 return (Variable)value;
@@ -380,23 +556,25 @@ public class MiniScript
                 return defaultValue;
         }
 
-        public Value GetVariableValue(Runtime runtime)
-        {
-            if (type == VALUE_TYPE.VARIABLE)
-                return runtime.GetVariableValue((Variable)value);
-            else
-                return null;
-        }
-
-        public Label GetLabel(Label defaultValue = null)
+        public Label TryGetLabel(Runtime runtime, Label defaultValue = null)
         {
             if (type == VALUE_TYPE.LABEL)
                 return (Label)value;
+
+            else if (type == VALUE_TYPE.VARIABLE)
+                return runtime.GetVariableValue((Variable)value).TryGetLabel(runtime, defaultValue);
+
             else
                 return defaultValue;
         }
 
-
+        public Value TryGetVariableValue(Runtime runtime, Value defaultValue = null)
+        {
+            if (type == VALUE_TYPE.VARIABLE)
+                return runtime.GetVariableValue((Variable)value);
+            else
+                return defaultValue;
+        }
 
         public Value(object value, VALUE_TYPE type, bool variable = false)
         {
@@ -745,10 +923,13 @@ public class MiniScript
             {
                 if (type == TOKEN_TYPE.INTEGER)
                     value = new Value(int.Parse(text), Value.VALUE_TYPE.INT);
+
                 else if (type == TOKEN_TYPE.FLOAT)
                     value = new Value(float.Parse(text, System.Globalization.CultureInfo.InvariantCulture), Value.VALUE_TYPE.FLOAT);
+
                 else if (type == TOKEN_TYPE.STRING)
                     value = new Value(text, Value.VALUE_TYPE.STRING);
+
                 else if (type == TOKEN_TYPE.STRING_TEMPLATE)
                 {
                     int charIndex = 0;
@@ -1121,7 +1302,7 @@ public class MiniScript
 
                     Command command = commands[firstToken.text];
 
-                    instructions.Add(new Instruction(command, parameters.ToArray()));
+                    instructions.Add(new Instruction(command, new Parameters(parameters.ToArray())));
                 }
                 else if (firstToken.type == Token.TOKEN_TYPE.VARIABLE)
                 {
@@ -1133,7 +1314,7 @@ public class MiniScript
                             return null;
                     }
 
-                    instructions.Add(new Instruction(null, new Value[] { firstToken.value, preparedInstruction[1].value}));
+                    instructions.Add(new Instruction(null, new Parameters(new Value[] { firstToken.value, preparedInstruction[1].value})));
                 }
             }
 

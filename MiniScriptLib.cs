@@ -4,223 +4,142 @@ using UnityEngine;
 
 public class MiniScriptLib
 {
-    static void GoTo(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void GoTo(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if(parameters.Length >= 1)
-        {
-            MiniScript.Label label = parameters[0].GetLabel();
+        MiniScript.Value labelParameter= parameters.Get(0, null);
 
-            if (label != null)
+        if (labelParameter == null)
+            return;
+
+        MiniScript.Label label = labelParameter.TryGetLabel(runtime, null);
+
+        if (label != null)
+            runtime.PlayFromLabel(label);
+    }
+
+    static void GoToIf(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
+    {
+        if (parameters.IsValid(new uint[] { 0, (uint)MiniScript.Value.VALUE_TYPE.VARIABLE + (uint)MiniScript.Value.VALUE_TYPE.LABEL}))
+        {
+            MiniScript.Label label = parameters.Get(1).TryGetLabel(runtime);
+
+            if (label != null && parameters.Get(0).TryGetBool(runtime) == true)
                 runtime.PlayFromLabel(label);
         }
     }
 
-    static void GoToIf(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Add(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if (parameters.Length >= 2)
+        if (parameters.IsValid(new uint[] {(uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
         {
-            MiniScript.Label label = parameters[0].GetLabel();
-            MiniScript.Value value;
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
 
-            if (parameters[1].type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                value = parameters[1].GetVariableValue(runtime);
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
+
+            result.Set(a.TryGetFloat(runtime, 0f) + b.TryGetFloat(runtime, 0f));
+        }
+    }
+
+    static void Sub(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
+    {
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
+        {
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
+
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
+
+            result.Set(a.TryGetFloat(runtime, 0f) - b.TryGetFloat(runtime, 0f));
+        }
+    }
+
+    static void Mul(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
+    {
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
+        {
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
+
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
+
+            result.Set(a.TryGetFloat(runtime, 0f) * b.TryGetFloat(runtime, 0f));
+        }
+    }
+
+    static void Div(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
+    {
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
+        {
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
+
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
+
+            float divisor = b.TryGetFloat(runtime, 0f);
+
+            if(divisor != 0f)
+                result.Set(a.TryGetFloat(runtime, 0f) / divisor);
             else
-                value = parameters[1];
-
-            if (label != null && value.GetBool(runtime) == true)
-                runtime.PlayFromLabel(label);
+                result.Set("Infinity");
         }
     }
 
-    static void Add(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Mod(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if(parameters.Length >= 3)
+        if (parameters.IsValid(new uint[] {(uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
         {
-            MiniScript.Value result = parameters[2];
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
 
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
 
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                {
-                    a = a.GetVariableValue(runtime);
-                }
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                {
-                    b = b.GetVariableValue(runtime);
-                }
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.FLOAT || b.type == MiniScript.Value.VALUE_TYPE.FLOAT)
-                    result.Set(a.GetFloat() + b.GetFloat());
-                else
-                    result.Set((int)a.value + (int)b.value);
-            }
+            result.Set(a.TryGetFloat(runtime, 0f) % b.TryGetFloat(runtime, 0f));
         }
     }
 
-    static void Sub(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Pow(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if (parameters.Length >= 3)
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
         {
-            MiniScript.Value result = parameters[2];
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
 
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
 
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.FLOAT || b.type == MiniScript.Value.VALUE_TYPE.FLOAT)
-                    result.Set(a.GetFloat() - b.GetFloat());
-                else
-                    result.Set((int)a.value - (int)b.value);
-            }
+            result.Set(Mathf.Pow(a.TryGetFloat(runtime, 0f), b.TryGetFloat(runtime, 0f)));
         }
     }
 
-    static void Mul(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
-    {
-        if (parameters.Length >= 3)
-        {
-            MiniScript.Value result = parameters[2];
-
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
-
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.FLOAT || b.type == MiniScript.Value.VALUE_TYPE.FLOAT)
-                    result.Set(a.GetFloat() * b.GetFloat());
-                else
-                    result.Set((int)a.value * (int)b.value);
-            }
-        }
-    }
-
-    static void Div(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
-    {
-        if (parameters.Length >= 3)
-        {
-            MiniScript.Value result = parameters[2];
-
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
-
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-                float divisor = b.GetFloat();
-
-                if(divisor != 0f)
-                    result.Set(a.GetFloat() / b.GetFloat());
-                else
-                    result.Set("Infinity");
-            }
-        }
-    }
-
-    static void Mod(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
-    {
-        if (parameters.Length >= 3)
-        {
-            MiniScript.Value result = parameters[2];
-
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
-
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.FLOAT || b.type == MiniScript.Value.VALUE_TYPE.FLOAT)
-                    result.Set(a.GetFloat() % b.GetFloat());
-                else
-                    result.Set((int)a.value % (int)b.value);
-            }
-        }
-    }
-
-    static void Pow(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
-    {
-        if (parameters.Length >= 3)
-        {
-            MiniScript.Value result = parameters[2];
-
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
-
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.FLOAT || b.type == MiniScript.Value.VALUE_TYPE.FLOAT)
-                    result.Set(Mathf.Pow(a.GetFloat(), b.GetFloat()));
-                else
-                    result.Set(Mathf.Pow((int)a.value, (int)b.value));
-            }
-        }
-    }
-
-    static void And(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void And(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
         int resultIndex = parameters.Length - 1;
 
-        if (resultIndex < 1 || parameters[resultIndex].type != MiniScript.Value.VALUE_TYPE.VARIABLE)
+        if (resultIndex < 1 || parameters.Get(resultIndex).type != MiniScript.Value.VALUE_TYPE.VARIABLE)
             return;
 
-        MiniScript.Value result = parameters[resultIndex].GetVariableValue(runtime);
+        MiniScript.Value result = parameters.Get(resultIndex).GetVariableValue(runtime);
 
         result.Set(true);
 
         for(int parameterIndex = 0; parameterIndex < resultIndex; parameterIndex++)
         {
-            MiniScript.Value parameter = parameters[parameterIndex];
+            MiniScript.Value parameter = parameters.Get(parameterIndex);
 
-            if(parameter.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                parameter = parameter.GetVariableValue(runtime);
-            }
-
-            if (!parameter.GetBool(runtime))
+            if (!parameter.TryGetBool(runtime))
             {
                 result.Set(false);
                 return;
@@ -228,27 +147,22 @@ public class MiniScriptLib
         }
     }
 
-    static void Or(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Or(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
         int resultIndex = parameters.Length - 1;
 
-        if (resultIndex < 1 || parameters[resultIndex].type != MiniScript.Value.VALUE_TYPE.VARIABLE)
+        if (resultIndex < 1 || parameters.Get(resultIndex).type != MiniScript.Value.VALUE_TYPE.VARIABLE)
             return;
 
-        MiniScript.Value result = parameters[resultIndex].GetVariableValue(runtime);
+        MiniScript.Value result = parameters.Get(resultIndex).GetVariableValue(runtime);
 
-        result.Set(false);
+        result.Set(true);
 
-        for (int parameterIndex = 0; parameterIndex < resultIndex; parameterIndex++)
+        for(int parameterIndex = 0; parameterIndex < resultIndex; parameterIndex++)
         {
-            MiniScript.Value parameter = parameters[parameterIndex];
+            MiniScript.Value parameter = parameters.Get(parameterIndex);
 
-            if (parameter.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                parameter = parameter.GetVariableValue(runtime);
-            }
-
-            if (parameter.GetBool(runtime))
+            if (parameter.TryGetBool(runtime))
             {
                 result.Set(true);
                 return;
@@ -256,198 +170,106 @@ public class MiniScriptLib
         }
     }
 
-    static void Not(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Not(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if (parameters.Length >= 2)
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 1))
         {
-            MiniScript.Value result = parameters[1];
+            MiniScript.Value result = parameters.Get(1).GetVariableValue(runtime);
 
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
+            MiniScript.Value parameter = parameters.Get(0);
 
-                MiniScript.Value parameter = parameters[0];
-
-                result.Set(!parameter.GetBool(runtime));
-            }
+            result.Set(!parameter.TryGetBool(runtime));
         }
     }
 
-    static void Equal(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Equal(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if (parameters.Length >= 3)
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
         {
-            MiniScript.Value result = parameters[2];
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
 
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
 
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.NULL && b.type == MiniScript.Value.VALUE_TYPE.NULL)
-                {
-                    result.Set(true);
-                    return;
-                }
-                else if (a.type == MiniScript.Value.VALUE_TYPE.BOOL && b.type == MiniScript.Value.VALUE_TYPE.BOOL)
-                {
-                    result.Set((bool)a.value == (bool)b.value);
-                    return;
-                }
-                else if ((a.type == MiniScript.Value.VALUE_TYPE.INT || a.type == MiniScript.Value.VALUE_TYPE.FLOAT) && (b.type == MiniScript.Value.VALUE_TYPE.INT || b.type == MiniScript.Value.VALUE_TYPE.FLOAT))
-                {
-                    result.Set(a.GetFloat() == b.GetFloat());
-                    return;
-                }
-                else if ((a.type == MiniScript.Value.VALUE_TYPE.STRING || a.type == MiniScript.Value.VALUE_TYPE.STRING_TEMPLATE) && (b.type == MiniScript.Value.VALUE_TYPE.STRING || b.type == MiniScript.Value.VALUE_TYPE.STRING_TEMPLATE))
-                {
-                    string str_a = a.type == MiniScript.Value.VALUE_TYPE.STRING ? (string)a.value : a.GetStringTemplate().GetString(runtime);
-                    string str_b = b.type == MiniScript.Value.VALUE_TYPE.STRING ? (string)b.value : b.GetStringTemplate().GetString(runtime);
-
-                    result.Set(str_a == str_b);
-                    return;
-                }
-                else if (a.type == MiniScript.Value.VALUE_TYPE.LABEL && b.type == MiniScript.Value.VALUE_TYPE.LABEL || a.type == MiniScript.Value.VALUE_TYPE.OBJECT && b.type == MiniScript.Value.VALUE_TYPE.OBJECT)
-                {
-                    result.Set(a.value == b.value);
-                    return;
-                }
-
-                result.Set(false);
-            }
+            result.Set(MiniScript.Value.IsEqual(a, b, runtime));
         }
     }
 
-    static void Greater(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Greater(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if (parameters.Length >= 3)
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
         {
-            MiniScript.Value result = parameters[2];
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
 
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
 
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-                float af = a.GetFloat();
-                float bf = b.GetFloat();
-
-                result.Set(a.GetFloat() > b.GetFloat());
-            }
+            result.Set(a.TryGetFloat(runtime, 0f) > b.TryGetFloat(runtime, 0f));
         }
     }
 
-    static void GreaterOrEqual(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void GreaterOrEqual(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if (parameters.Length >= 3)
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
         {
-            MiniScript.Value result = parameters[2];
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
 
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
 
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-                result.Set(a.GetFloat() >= b.GetFloat());
-            }
+            result.Set(a.TryGetFloat(runtime, 0f) > b.TryGetFloat(runtime, 0f));
         }
     }
 
-    static void Less(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Less(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if (parameters.Length >= 3)
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
         {
-            MiniScript.Value result = parameters[2];
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
 
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
 
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-
-                result.Set(a.GetFloat() < b.GetFloat());
-            }
+            result.Set(a.TryGetFloat(runtime, 0f) < b.TryGetFloat(runtime, 0f));
         }
     }
 
-    static void LessOrEqual(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void LessOrEqual(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
-        if (parameters.Length >= 3)
+        if (parameters.IsValid(new uint[] { (uint)MiniScript.Value.VALUE_TYPE.VARIABLE }, 2))
         {
-            MiniScript.Value result = parameters[2];
+            MiniScript.Value a = parameters.Get(0);
+            MiniScript.Value b = parameters.Get(1);
+            MiniScript.Value result = parameters.Get(2).GetVariableValue(runtime);
 
-            if (result.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-            {
-                result = result.GetVariableValue(runtime);
+            a = a.TryGetVariableValue(runtime, a);
+            b = b.TryGetVariableValue(runtime, b);
 
-                MiniScript.Value a = parameters[0];
-                MiniScript.Value b = parameters[1];
-
-
-                if (a.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    a = a.GetVariableValue(runtime);
-
-                if (b.type == MiniScript.Value.VALUE_TYPE.VARIABLE)
-                    b = b.GetVariableValue(runtime);
-
-
-                result.Set(a.GetFloat() <= b.GetFloat());
-            }
+            result.Set(a.TryGetFloat(runtime, 0f) <= b.TryGetFloat(runtime, 0f));
         }
     }
 
-    static void Pause(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Pause(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
         float waitTime;
 
         if (parameters.Length >= 1)
-            if(parameters[0].type != MiniScript.Value.VALUE_TYPE.VARIABLE)
-                waitTime = parameters[0].GetFloat(-1);
-            else
-                waitTime = parameters[0].GetVariableValue(runtime).GetFloat(-1);
+            waitTime = parameters.Get(0).TryGetFloat(runtime, -1);
         else
             waitTime = -1;
 
         runtime.Pause(waitTime);
     }
 
-    static void Exit(MiniScript.Value[] parameters, MiniScript.Runtime runtime)
+    static void Exit(MiniScript.Parameters parameters, MiniScript.Runtime runtime)
     {
         runtime.ResetPlayback();
     }
